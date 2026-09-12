@@ -1,0 +1,38 @@
+name: sat_clas
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # CUDA runtime channel, not a pinned PyTorch release.
+      - --extra-index-url https://download.pytorch.org/whl/cu130
+      - torch
+      - torchvision
+      - numpy
+      - pandas
+      - matplotlib
+      - opencv-python
+      - pillow
+      - scikit-learn
+      - tqdm
+      - jupyter
+      - jupyterlab
+      - ipykernel
+      - rasterio
+      - geopandas
+      - shapely
+      - pyproj
+      - pyyaml
+      - transformers
+      - accelerate
+      - huggingface-hub
+      - safetensors
+      - requests
+      - fastapi
+      - uvicorn
+      - python-multipart
+      - osm2geojson
+      - pygeohash
+      - httpx

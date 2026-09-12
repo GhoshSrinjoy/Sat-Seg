@@ -1,0 +1,12 @@
+{
+  "model_id": "facebook/sam3",
+  "cache_directory": "D:/data/models/models--facebook--sam3",
+  "revision": "3c879f39826c281e95690f02c7821c4de09afae7",
+  "model_type": "sam3_video",
+  "architectures": ["Sam3VideoModel"],
+  "weights_bytes": 3439938512,
+  "weights_sha256": "6d06f0a5f84e435071fe6603e61d0b4cc7b40e0d39d487cfd4d67d8cc11cc14a",
+  "sha256_matches_cache_blob_name": true,
+  "model_download_performed": false,
+  "notes": "Pre-existing Hugging Face snapshot with tokenizer and processor files. The image detector is part of this composite checkpoint. Ollama models were inventoried but not changed."
+}

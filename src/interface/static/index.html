@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Geo Explorer · Find and label your world</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <div><span class="brand-mark">◈</span><strong>Geo Explorer</strong><span class="badge">LOCAL</span></div>
+    <div class="service-status"><span id="gpu">Checking GPU…</span><span id="model-status">Ollama: checking…</span><button class="header-settings" data-panel="settings-panel">⚙ Settings</button></div>
+  </header>
+  <main>
+    <aside>
+      <nav aria-label="Workflows">
+        <button class="tab active" data-panel="search-panel">Explore</button>
+        <button class="tab" data-panel="compare-panel">Compare</button>
+        <button class="tab" data-panel="training-panel">Advanced</button>
+      </nav>
+      <section id="search-panel" class="panel">
+        <div class="eyebrow">SEARCH · SELECT · LABEL</div>
+        <h1>Understand<br />what’s here.</h1>
+        <form id="search-form">
+          <label for="query">Location, address, or a question</label>
+          <textarea id="query" rows="3" placeholder="Find buildings in this area using satellite imagery" required></textarea>
+          <div class="row"><select id="search-mode" aria-label="Search mode"><option value="auto">Understand my query</option><option value="address">Address / place</option></select><button type="submit">Search →</button></div>
+          <label for="search-source">Search with</label>
+          <select id="search-source"><option value="auto">Auto · choose from the request</option><option value="maps">Map records</option><option value="imagery">Satellite / SAM</option><option value="combined">SAM + map names and addresses</option></select>
+          <label class="check"><input type="checkbox" id="use-ollama" />Use Ollama for natural language</label>
+          <p id="ollama-hint" class="hint"></p>
+        </form>
+        <div class="examples"><button data-query="Berkeley, California">Berkeley</button><button data-query="Alexanderplatz, Berlin">Berlin</button><button data-query="detect buildings and trees here">Find buildings + trees</button></div>
+        <div id="candidates"></div>
+        <div class="analysis-card">
+          <div class="eyebrow">SAM IMAGE FINDER</div>
+          <h2>Label a selected area</h2>
+          <label for="concept">What should SAM find?</label>
+          <input id="concept" value="building" placeholder="building, tree, water…" maxlength="200" />
+          <div class="examples"><button data-concept="building">Buildings</button><button data-concept="tree">Trees</button><button data-concept="water">Water</button><button data-concept="road">Roads</button></div>
+          <p id="selection-info" class="hint">Draw a box on the map, or use the visible area.</p>
+          <button id="analyse-area" class="wide">Analyse selected area</button>
+          <label class="check"><input id="auto-analyse" type="checkbox" checked />Run SAM after drawing a box</label>
+          <p class="hint">Satellite imagery switches on automatically. Detection defaults and providers are in Settings.</p>
+        </div>
+        <details class="map-records"><summary>Find mapped places and addresses</summary>
+          <label for="category">Map category</label>
+          <select id="category"><option value="buildings">Buildings</option><option value="hospitals">Hospitals</option><option value="schools">Schools</option><option value="parks">Parks</option><option value="water">Water</option><option value="roads">Roads and paths</option><option value="trees">Trees and forests</option><option value="restaurants">Restaurants</option><option value="shops">Shops</option><option value="hiking">Hiking routes</option><option value="all">Common map elements</option></select>
+          <label for="custom-tag">Or an OpenStreetMap tag</label><input id="custom-tag" placeholder="amenity=pharmacy" />
+          <button id="area-search" class="secondary wide">Search selected / visible area</button>
+        </details>
+        <div class="results-heading"><h2>Results <span id="result-count">0</span></h2><button id="enrich-results" class="secondary" disabled>Match addresses</button></div>
+        <label for="result-filter" class="sr-only">Filter results</label>
+        <select id="result-filter"><option value="all">All results</option><option value="missing_address">Without a mapped address</option><option value="has_address">With address evidence</option><option value="rejected">Rejected detections</option></select>
+        <div id="result-list"><p class="hint">Your places and detections will appear here.</p></div>
+      </section>
+      <section id="compare-panel" class="panel" hidden>
+        <div class="eyebrow">BEFORE & AFTER</div><h1>See what changed.</h1>
+        <p class="muted">Add two PNG or JPEG images of the same scene. Review their alignment, then compare visible objects.</p>
+        <form id="compare-form">
+          <label class="drop-zone">Before image<input id="before-file" name="before" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" required /><span>PNG / JPEG · TIFF also supported</span></label>
+          <label>Date (optional)<input name="before_date" type="date" /></label>
+          <label class="drop-zone">After image<input id="after-file" name="after" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" required /><span>PNG / JPEG · TIFF also supported</span></label>
+          <label>Date (optional)<input name="after_date" type="date" /></label>
+          <label>Visible concept<input name="prompt" id="compare-concept" value="building" required maxlength="200" /></label>
+          <label for="alignment">Image alignment</label><select id="alignment" name="alignment"><option value="auto">Automatic · match landmarks / georeferencing</option><option value="same_grid">Already aligned · same pixel grid</option><option value="manual">Manual · mark matching landmarks</option></select>
+          <p id="manual-hint" class="hint" hidden>Click a landmark in Before, then the same landmark in After. Add at least four pairs spread across the images.</p>
+          <button id="clear-points" type="button" class="secondary" hidden>Clear landmark pairs</button>
+          <div id="point-count" class="hint"></div>
+          <details><summary>Optional map placement and raster bands</summary>
+            <p class="hint">For a north-up, orthorectified After image only. Ordinary photos can be compared without map placement.</p>
+            <label>After image bounds: west,south,east,north<input name="bounds" id="compare-bounds" placeholder="Leave blank for image comparison" /></label>
+            <button type="button" id="compare-use-bounds" class="secondary">Use selected map box as After extent</button>
+            <label>RGB band indexes for a raster<input name="rgb_bands" placeholder="e.g. 1,2,3" /></label>
+          </details>
+          <button type="button" id="preview-alignment" class="secondary wide">1. Preview alignment</button>
+          <p id="alignment-result" class="hint">Choose both images to begin.</p>
+          <button type="submit" id="compare-submit" class="wide" disabled>2. Compare aligned images</button>
+        </form>
+      </section>
+      <section id="settings-panel" class="panel" hidden>
+        <div class="eyebrow">CONFIGURATION</div><h1>Make it yours.</h1>
+        <p class="muted">Saved settings apply to new analyses and persist when the app restarts.</p>
+        <form id="settings-form">
+          <fieldset><legend>Ollama · language model</legend>
+            <label class="check"><input data-setting="ollama.enabled" type="checkbox" />Use Ollama by default</label>
+            <label>Server URL<input data-setting="ollama.base_url" type="url" required /></label>
+            <button type="button" id="refresh-models" class="secondary">Test connection & refresh models</button>
+            <p id="ollama-connection" class="hint"></p>
+            <label>Installed model<select data-setting="ollama.model" id="ollama-model"><option value="">Choose a model</option></select></label>
+            <label>Test request<input id="model-test-query" value="Find buildings in the selected box using satellite imagery" /></label>
+            <button type="button" id="test-model" class="secondary">Test selected model</button>
+            <pre id="model-test-result" hidden></pre>
+            <details><summary>Language model options</summary>
+              <label>Temperature<input data-setting="ollama.temperature" type="number" min="0" max="2" step="0.1" /></label>
+              <label>Timeout (seconds)<input data-setting="ollama.timeout" type="number" min="10" max="600" /></label>
+              <label>Context length<input data-setting="ollama.context_length" type="number" min="1024" max="32768" /></label>
+              <label class="check"><input data-setting="ollama.unload_after_query" type="checkbox" />Release model memory after each query</label>
+              <p class="hint">SAM and Ollama share GPU time. SAM is released before language inference; the selected Ollama model is released before loading SAM.</p>
+            </details>
+          </fieldset>
+          <fieldset><legend>SAM · local segmentation</legend>
+            <label>Model ID<input data-setting="sam3.model_id" required /></label>
+            <label>Local cache folder<input data-setting="sam3.cache_dir" required /></label>
+            <label>Checkpoint revision<input data-setting="sam3.revision" required /></label>
+            <div class="row"><label>Device<select data-setting="sam3.device"><option value="cuda">NVIDIA GPU</option><option value="cpu">CPU</option></select></label><label>Precision<select data-setting="sam3.dtype"><option value="float32">float32</option><option value="float16">float16</option><option value="bfloat16">bfloat16</option></select></label></div>
+            <label>Default concept<input data-setting="sam3.prompt" required maxlength="200" /></label>
+            <div class="row"><label>Detection threshold<input data-setting="sam3.threshold" type="number" min="0" max="1" step="0.05" /></label><label>Mask threshold<input data-setting="sam3.mask_threshold" type="number" min="0" max="1" step="0.05" /></label></div>
+            <p class="hint">A higher detection threshold keeps fewer, stronger detections. Scores are model scores, not verified accuracy.</p>
+            <button type="button" id="inspect-sam" class="secondary">Inspect saved checkpoint</button>
+            <button type="button" id="reload-sam" class="secondary">Load / test saved model</button>
+            <p id="sam-state" class="hint"></p>
+            <details><summary>Inference windows and merging</summary>
+              <label>Window size (pixels)<input data-setting="sam3.tile_size" type="number" min="256" max="1008" /></label>
+              <label>Window overlap (pixels)<input data-setting="sam3.tile_overlap" type="number" min="16" max="256" /></label>
+              <label>Instance merge overlap<input data-setting="sam3.merge_overlap" type="number" min="0.1" max="1" step="0.05" /></label>
+              <label>Minimum object size (pixels)<input data-setting="sam3.min_object_pixels" type="number" min="1" max="100000" /></label>
+            </details>
+          </fieldset>
+          <fieldset><legend>Satellite / aerial imagery</legend>
+            <label>Imagery source<select data-setting="imagery.provider" id="imagery-provider"><option value="auto">Auto · Berlin / contiguous US coverage</option><option value="naip">USGS NAIP · contiguous US</option><option value="berlin">Berlin · spring 2025 orthophotos</option><option value="custom_wms">Custom imagery WMS</option></select></label>
+            <p class="hint">Built-in imagery covers Berlin and the contiguous US. Other regions need an imagery service that permits analysis. Imagery is not necessarily current.</p>
+            <label>Ground resolution (metres / pixel)<input data-setting="imagery.resolution_m" type="number" min="0.2" max="20" step="0.1" /></label>
+            <div id="custom-provider-fields" hidden>
+              <label>WMS service URL<input data-setting="imagery.custom_url" type="url" /></label>
+              <label>Imagery layer name<input data-setting="imagery.custom_layer" /></label>
+              <label>Attribution<input data-setting="imagery.custom_attribution" /></label>
+              <label>Service token (optional; kept on server)<input data-setting="imagery.custom_token" type="password" autocomplete="new-password" placeholder="Leave blank to keep existing token" /></label>
+              <label class="check"><input id="clear-token" type="checkbox" />Clear saved token</label>
+              <p class="hint">Use a WMS imagery layer supporting EPSG:3857, WMS 1.1.1 and PNG. Service tokens are sent as the token parameter.</p>
+            </div>
+            <details><summary>Image and cache limits</summary>
+              <label>Maximum image pixels<input data-setting="imagery.max_pixels" type="number" min="65536" max="16000000" /></label>
+              <label>Maximum inference windows<input data-setting="imagery.max_tiles" type="number" min="1" max="64" /></label>
+              <label>Imagery cache lifetime (seconds)<input data-setting="imagery.cache_seconds" type="number" min="0" max="2592000" /></label>
+              <label>Imagery cache size (MB)<input data-setting="imagery.cache_mb" type="number" min="16" max="4096" /></label>
+            </details>
+          </fieldset>
+          <fieldset><legend>Map and labels</legend>
+            <div class="row"><label>Start latitude<input data-setting="map.default_lat" type="number" min="-85" max="85" step="any" /></label><label>Start longitude<input data-setting="map.default_lon" type="number" min="-180" max="180" step="any" /></label></div>
+            <label>Start zoom<input data-setting="map.default_zoom" type="number" min="2" max="20" /></label>
+            <label>Maximum selected area (km²)<input data-setting="map.max_area_km2" type="number" min="0.01" max="25" step="0.01" /></label>
+            <label class="check"><input data-setting="map.auto_analyse" type="checkbox" />Run SAM when a box is drawn</label>
+            <label class="check"><input data-setting="map.show_labels" type="checkbox" />Show labels on the map</label>
+            <label class="check"><input data-setting="map.enrich" type="checkbox" />Match SAM detections to map records</label>
+            <details><summary>Map data services</summary><label>Photon URL<input data-setting="map.photon_url" type="url" required /></label><label>Overpass URL<input data-setting="map.overpass_url" type="url" required /></label><label>Map record cache lifetime (seconds)<input data-setting="map.cache_seconds" type="number" min="0" max="2592000" /></label></details>
+          </fieldset>
+          <fieldset><legend>Before / after comparison</legend>
+            <label>Default alignment<select data-setting="comparison.alignment"><option value="auto">Automatic</option><option value="same_grid">Already aligned</option><option value="manual">Manual landmarks</option></select></label>
+            <label>Minimum changed region (pixels)<input data-setting="comparison.min_change_pixels" type="number" min="1" max="100000" /></label>
+            <label>Boundary tolerance (pixels)<input data-setting="comparison.edge_tolerance" type="number" min="0" max="10" /></label>
+          </fieldset>
+          <div class="settings-actions"><button type="submit">Save settings</button><button type="button" id="discard-settings" class="secondary">Discard edits</button></div>
+          <p id="settings-message" role="status" class="hint"></p>
+        </form>
+      </section>
+      <section id="training-panel" class="panel" hidden>
+        <div class="eyebrow">ADVANCED TOOLS</div><h1>Work with your data.</h1>
+        <details><summary>Segment an uploaded image</summary>
+          <form id="segment-form"><label>PNG, JPEG or GeoTIFF<input name="image" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" required /></label><label>Concept<input name="prompt" value="building" required /></label><label>Optional full-image bounds<input name="bounds" placeholder="west,south,east,north" /></label><label>RGB bands for a raster<input name="rgb_bands" placeholder="Auto, or 1,2,3" /></label><label class="check"><input name="enrich" type="checkbox" checked />Attach map evidence</label><button type="submit" class="wide">Segment image</button></form>
+          <button id="demo" class="secondary wide">Try cached Berkeley imagery</button>
+        </details>
+        <details><summary>Import GeoJSON</summary><label>WGS84 map layer<input id="geojson-file" type="file" accept=".geojson,.json" /></label></details>
+        <details><summary>Train a tile classifier</summary>
+          <p class="hint">Train ResNet-18 from reviewed RGB tiles. This is separate from SAM segmentation.</p>
+          <form id="train-form"><label>Dataset manifest CSV<input id="manifest" placeholder="D:/data/my_dataset/manifest.csv" required /></label><p class="hint">Columns: path, label, split, group. Separate train/val/test by geography.</p><div class="row"><label>Epochs<input id="epochs" type="number" min="1" max="10000" value="10" /></label><label>Batch size<input id="batch-size" type="number" min="2" max="128" value="16" /></label></div><button type="submit" class="wide">Start training</button></form>
+          <button id="cancel-training" class="secondary wide" hidden>Cancel training</button><pre id="training-log" hidden></pre>
+        </details>
+        <details><summary>Use a trained classifier</summary>
+          <form id="classify-form"><label>Checkpoint<select id="checkpoint" name="checkpoint" required></select></label><button id="refresh-checkpoints" type="button" class="secondary">Refresh checkpoints</button><label>RGB tile<input name="image" type="file" accept=".png,.jpg,.jpeg" required /></label><button type="submit" class="wide">Classify tile</button></form><pre id="classification-result" hidden></pre>
+        </details>
+      </section>
+    </aside>
+    <div class="workspace">
+      <div class="map-bar"><div class="selection-tools"><button id="draw-area" class="secondary" aria-pressed="false">▭ Draw area</button><button id="use-view" class="secondary">Use visible area</button><button id="clear-selection" class="secondary">Clear box</button></div><div class="basemap-toggle" role="group" aria-label="Basemap"><button id="street-map" class="secondary active" aria-pressed="true">Street</button><button id="satellite-map" class="secondary" aria-pressed="false">Satellite</button></div></div>
+      <div id="map" aria-label="Interactive map"></div>
+      <div class="map-caption"><span id="map-location"></span><span id="imagery-source">Street map · OpenStreetMap</span></div>
+      <div id="job-progress" hidden><progress id="progress-meter" max="1" value="0"></progress><button id="cancel-analysis" class="secondary">Cancel analysis</button></div>
+      <div id="status" role="status" aria-live="polite">Search a place, then draw a box to find and label visible objects.</div>
+      <div id="result-summary" class="result-summary"></div>
+      <div id="feature-details" hidden></div>
+      <div id="compare-viewer" hidden>
+        <div class="viewer-heading"><h2 id="viewer-title">Before / after</h2><button id="close-viewer" class="secondary">Close preview</button></div>
+        <div id="pair-previews"><div class="landmark-frame"><span>Before</span><canvas id="before-canvas"></canvas></div><div class="landmark-frame"><span>After</span><canvas id="after-canvas"></canvas></div></div>
+        <div id="swipe-view" hidden><div class="swipe-images"><img id="swipe-after" alt="Aligned after image" /><img id="swipe-before" alt="Aligned before image" /></div><label>Before ↔ After<input id="swipe-slider" type="range" min="0" max="100" value="50" /></label></div>
+      </div>
+      <div id="image-results" hidden><div class="preview-row" id="previews"></div></div>
+      <div class="export-bar"><label class="check"><input id="show-results" type="checkbox" checked />Outlines</label><label class="check"><input id="show-labels" type="checkbox" checked />Labels</label><label class="check"><input id="show-analysed" type="checkbox" checked />Analysed image</label><div class="export-actions"><button id="clear" class="secondary">Clear results</button><button id="download" class="secondary" disabled>GeoJSON</button><button id="download-csv" class="secondary" disabled>CSV</button><a id="download-image" class="button secondary" hidden download>Annotated image</a><a id="download-pixels" class="button secondary" hidden download>Image labels JSON</a></div></div>
+    </div>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

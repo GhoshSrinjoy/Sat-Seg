@@ -1,0 +1,30 @@
+# Install CUDA PyTorch first using the command in README.md.
+# Let pip resolve current compatible stable releases.
+torch
+torchvision
+numpy
+pandas
+matplotlib
+opencv-python
+pillow
+scikit-learn
+tqdm
+jupyter
+jupyterlab
+ipykernel
+rasterio
+geopandas
+shapely
+pyproj
+pyyaml
+transformers
+accelerate
+huggingface-hub
+safetensors
+requests
+fastapi
+uvicorn
+python-multipart
+osm2geojson
+pygeohash
+httpx

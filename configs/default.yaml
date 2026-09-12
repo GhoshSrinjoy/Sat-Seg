@@ -1,0 +1,58 @@
+# Application defaults. UI changes are saved separately in configs/local.yaml.
+project:
+  name: sat_clas
+  seed: 42
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  predictions: outputs/predictions
+sam3:
+  model_id: facebook/sam3
+  cache_dir: D:/data/models
+  revision: 3c879f39826c281e95690f02c7821c4de09afae7
+  local_files_only: true
+  device: cuda
+  dtype: float32
+  prompt: building
+  threshold: 0.5
+  mask_threshold: 0.5
+  tile_size: 1008
+  tile_overlap: 96
+  merge_overlap: 0.6
+  min_object_pixels: 16
+ollama:
+  base_url: http://localhost:11434
+  model: null
+  enabled: false
+  temperature: 0
+  timeout: 120
+  context_length: 4096
+  unload_after_query: true
+imagery:
+  provider: auto
+  resolution_m: 0.6
+  max_pixels: 4000000
+  max_tiles: 25
+  cache_seconds: 86400
+  cache_mb: 512
+  custom_url: ''
+  custom_layer: ''
+  custom_attribution: User-configured imagery
+  custom_token: ''
+map:
+  photon_url: https://photon.komoot.io
+  overpass_url: https://overpass-api.de/api/interpreter
+  max_area_km2: 25
+  cache_seconds: 86400
+  user_agent: sat-clas/0.2 local-research (interactive map explorer)
+  default_lat: 37.8716
+  default_lon: -122.2727
+  default_zoom: 16
+  show_labels: true
+  enrich: true
+  auto_analyse: true
+comparison:
+  alignment: auto
+  min_change_pixels: 25
+  edge_tolerance: 1
